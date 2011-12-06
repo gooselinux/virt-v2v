@@ -1,0 +1,76 @@
+commit a1c8896105c08a34234cbd0acaf35a97d5e93ee3
+Author: Matthew Booth <mbooth@redhat.com>
+Date:   Mon Aug 16 14:37:01 2010 +0100
+
+    Change the default location of Windows VirtIO drivers on the host
+    
+    This patch updates the default virt-v2v.conf to use files installed by the
+    virtio-win package. virt-v2v.conf also now specifies the directory containing
+    viostor.sys rather than the file itself.
+
+diff --git a/lib/Sys/VirtV2V/Converter/Windows.pm b/lib/Sys/VirtV2V/Converter/Windows.pm
+index 8a255d0..8a2fbe5 100644
+--- a/lib/Sys/VirtV2V/Converter/Windows.pm
++++ b/lib/Sys/VirtV2V/Converter/Windows.pm
+@@ -358,7 +358,7 @@ sub _upload_files
+     my @missing;
+     my %files;
+ 
+-    for my $file ("viostor", "firstboot", "firstbootapp", "rhsrvany") {
++    for my $file ("virtio", "firstboot", "firstbootapp", "rhsrvany") {
+         my ($path) = $config->match_app ($desc, $file, $desc->{arch});
+         my $local = $config->get_transfer_path ($g, $path);
+         push (@missing, $path) unless ($g->exists($local));
+@@ -372,10 +372,9 @@ sub _upload_files
+                          "required, but missing: {list}",
+                          list => join(' ', @missing)))) if (@missing > 0);
+ 
+-    # Copy viostor into place
+-    my $driverpath = "/windows/system32/drivers";
+-    $driverpath = $g->case_sensitive_path ($driverpath);
+-    $g->cp ($files{viostor}, $driverpath);
++    # Copy viostor directly into place as it's a critical boot device
++    $g->cp (File::Spec->catfile($files{virtio}, 'viostor.sys'),
++            $g->case_sensitive_path ("/windows/system32/drivers"));
+ 
+     # Copy other files into a temp directory
+     my $path = "/temp/v2v";
+diff --git a/v2v/virt-v2v.conf b/v2v/virt-v2v.conf
+index a79f3a8..c2a3523 100644
+--- a/v2v/virt-v2v.conf
++++ b/v2v/virt-v2v.conf
+@@ -141,21 +141,23 @@
+   </app>
+ 
+   <!-- Windows -->
+-  <app os='windows' major='5' minor='1' arch='i386' name='viostor'>
+-    <path>windows/xp/i386/viostor.sys</path>
+-  </app>
+-  <app os='windows' major='5' minor='2' arch='i386' name='viostor'>
+-    <path>windows/2003/i386/viostor.sys</path>
++
++  <!-- Each of these should point to the directory containing the appropriate
++       VirtIO drivers. On some platforms (RHEL 6), the directories below will
++       correspond to directories installed by the 'virtio-win' package. -->
++  <app os='windows' major='5' minor='2' arch='i386' name='virtio'>
++    <path>/usr/share/virtio-win/drivers/i386/Win2003</path>
+   </app>
+-  <app os='windows' major='5' minor='2' arch='x86_64' name='viostor'>
+-    <path>windows/2003/x86_64/viostor.sys</path>
++  <app os='windows' major='5' minor='2' arch='x86_64' name='virtio'>
++    <path>/usr/share/virtio-win/drivers/amd64/Win2003</path>
+   </app>
+-  <app os='windows' major='6' arch='i386' name='viostor'>
+-    <path>windows/2008/i386/viostor.sys</path>
++  <app os='windows' major='6' arch='i386' name='virtio'>
++    <path>/usr/share/virtio-win/drivers/i386/Win2008</path>
+   </app>
+-  <app os='windows' major='6' arch='x86_64' name='viostor'>
+-    <path>windows/2008/x86_64/viostor.sys</path>
++  <app os='windows' major='6' arch='x86_64' name='virtio'>
++    <path>/usr/share/virtio-win/drivers/amd64/Win2008</path>
+   </app>
++
+   <!-- RHSrvAny is compiled as a 32 bit app even on 64 bit Windows -->
+   <app os='windows' name='rhsrvany'>
+     <path>windows/rhsrvany.exe</path>

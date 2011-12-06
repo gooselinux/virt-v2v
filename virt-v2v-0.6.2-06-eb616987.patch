@@ -1,0 +1,28 @@
+commit eb6169877c7e9f5a90469ed534a112b7d1fa849f
+Author: Matthew Booth <mbooth@redhat.com>
+Date:   Wed Aug 18 11:20:49 2010 +0100
+
+    Identify RHEL 6 as 'OtherLinux' to RHEV
+    
+    RHEV 2.2 doesn't have a guest type of 'RHEL6', which causes conversion to fail.
+    This change identifies a RHEL 6 guest as OtherLinux when converting to RHEV.
+    
+    Fixes RHBZ#625041
+
+diff --git a/lib/Sys/VirtV2V/Target/RHEV.pm b/lib/Sys/VirtV2V/Target/RHEV.pm
+index 330b52e..574b022 100644
+--- a/lib/Sys/VirtV2V/Target/RHEV.pm
++++ b/lib/Sys/VirtV2V/Target/RHEV.pm
+@@ -880,7 +880,11 @@ sub _get_os_type_linux
+     my $distro = $root->{osdistro};
+     my $major = $root->{os_major_version};
+ 
+-    if ($distro eq 'rhel') {
++    # XXX: RHEV 2.2 doesn't support a RHEL 6 target, however RHEV 2.3+ will.
++    # For the moment, we set RHEL 6 to be 'OtherLinux', however we will need to
++    # distinguish in future between RHEV 2.2 target and RHEV 2.3 target to know
++    # what is supported.
++    if ($distro eq 'rhel' && $major < 6) {
+         return "RHEL".$major.$arch_suffix;
+     }
+ 

@@ -1,0 +1,25 @@
+commit 604f1b5098b7e408d9a7dedfb4f0ca208f0ed22d
+Author: Matthew Booth <mbooth@redhat.com>
+Date:   Wed Aug 18 10:54:49 2010 +0100
+
+    Explicitly set umask to 0022 before running
+    
+    virt-v2v won't work with a umask more restrictive than 0022. Set the umask
+    explicitly before running.
+    
+    Fixes RHBZ#610875
+
+diff --git a/v2v/virt-v2v.pl b/v2v/virt-v2v.pl
+index 38b69b5..93bfcd5 100755
+--- a/v2v/virt-v2v.pl
++++ b/v2v/virt-v2v.pl
+@@ -263,6 +263,9 @@ GetOptions ("help|?"      => sub {
+             },
+ ) or pod2usage(2);
+ 
++# Set the umask to a reasonable default for virt-v2v
++umask(0022);
++
+ # Read the config file if one was given
+ my $config = Sys::VirtV2V::Config->new($config_file);
+ 

@@ -1,0 +1,127 @@
+commit c96306de9ae921d3b6183ffafbdc3dec7ab5c282
+Author: Matthew Booth <mbooth@redhat.com>
+Date:   Mon Aug 16 14:42:28 2010 +0100
+
+    Install VirtIO storage and network drivers in Windows
+    
+    Currently when converting a Windows guest we do a minimum installation of the
+    viostor driver, configure the RHEV guest agent and leave RHEV to properly
+    install viostor and all remaining drivers. This works well if RHEV is properly
+    configured and the installation is not interrupted on first boot.
+    
+    However, if the target of the conversion is not RHEV, RHEV is not properly
+    configured, or the first boot installation process is interrupted, for
+    example by the user logging in and interacting with it, this will fail. In this
+    case, in the absence of a correct driver Windows can mis-detect the VirtIO 'SCSI
+    Controller' and configure the wrong driver for it. This will lead to the guest
+    subsequently failing to boot.
+    
+    This patch complements the RHEV-managed process by additionally copying
+    installable versions of the VirtIO storage and network drivers to the guest
+    during conversion, and adding the location of the drivers to the default search
+    path for drivers. This means that Windows will install correct drivers for
+    network and storage if the RHEV process fails, or if the conversion target is
+    not RHEV.
+
+diff --git a/lib/Sys/VirtV2V/Converter/Windows.pm b/lib/Sys/VirtV2V/Converter/Windows.pm
+index 8a2fbe5..84afbb8 100644
+--- a/lib/Sys/VirtV2V/Converter/Windows.pm
++++ b/lib/Sys/VirtV2V/Converter/Windows.pm
+@@ -23,6 +23,7 @@ use warnings;
+ use Carp qw(carp);
+ use File::Temp qw(tempdir);
+ use Data::Dumper;
++use Encode qw(encode decode);
+ use IO::String;
+ use XML::DOM;
+ use XML::DOM::XPath;
+@@ -188,6 +189,7 @@ sub _preconvert
+     _upload_files ($g, $tmpdir, $desc, $devices, $config);
+     _add_viostor_to_registry ($g, $tmpdir, $desc, $devices, $config);
+     _add_service_to_registry ($g, $tmpdir, $desc, $devices, $config);
++    _prepare_virtio_drivers ($g, $tmpdir, $desc, $devices, $config);
+ }
+ 
+ # See http://rwmj.wordpress.com/2010/04/30/tip-install-a-device-driver-in-a-windows-vm/
+@@ -346,6 +348,81 @@ sub _add_service_to_registry
+     $g->upload ($tmpdir . "/system", $system_filename);
+ }
+ 
++# We copy the VirtIO drivers to a directory on the guest and add this directory
++# to HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DevicePath so that it will
++# be searched automatically when automatically installing drivers.
++sub _prepare_virtio_drivers
++{
++    my $g = shift;
++    my $tmpdir = shift;
++    my $desc = shift;
++    my $devices = shift;
++    my $config = shift;
++
++    # Copy the target VirtIO drivers to the guest
++    my $driverdir = File::Spec->catdir($g->case_sensitive_path("/windows"), "Drivers/VirtIO");
++
++    $g->mkdir_p($driverdir);
++
++    my ($virtio) = $config->match_app ($desc, 'virtio', $desc->{arch});
++    $virtio = $config->get_transfer_path($g, $virtio);
++
++    foreach my $src ($g->ls($virtio)) {
++        my $name = $src;
++        $src = File::Spec->catfile($virtio);
++        my $dst = File::Spec->catfile($driverdir, $name);
++        $g->cp_a($src, $dst);
++    }
++
++    # Locate and download the SOFTWARE hive
++    my $sw_local = File::Spec->catfile($tmpdir, 'software');
++    my $sw_guest = $g->case_sensitive_path('/windows/system32/config/software');
++
++    $g->download($sw_guest, $sw_local);
++
++    # Open the registry hive.
++    my $h = Win::Hivex->open($sw_local, write => 1)
++        or die "open hive $sw_local: $!";
++
++    # Find the node \Microsoft\Windows\CurrentVersion
++    my $node = $h->root();
++    foreach ('Microsoft', 'Windows', 'CurrentVersion') {
++        $node = $h->node_get_child($node, $_);
++    }
++
++    # Update DevicePath, but leave everything else as is
++    my @new;
++    my $append = ';%SystemRoot%\Drivers\VirtIO';
++    foreach my $v ($h->node_values($node)) {
++        my $key = $h->value_key($v);
++        my ($type, $data) = $h->value_value($v);
++
++        # Decode the string from utf16le to perl native
++        my $value = decode('UTF-16LE', $data);
++
++        # Append the driver location if it's not there already
++        if ($key eq 'DevicePath' && index($value, $append) == -1) {
++            # Remove the explicit trailing NULL
++            chop($value);
++
++            # Append the new path and a new explicit trailing NULL
++            $value .= $append."\0";
++
++            # Re-encode the string back to utf16le
++            $data = encode('UTF-16LE', $value);
++        }
++
++        push (@new, { key => $key, t => $type, value => $data });
++    }
++    $h->node_set_values($node, \@new);
++
++    $h->commit(undef);
++    undef $h;
++
++    # Upload the new registry.
++    $g->upload($sw_local, $sw_guest);
++}
++
+ sub _upload_files
+ {
+     my $g = shift;

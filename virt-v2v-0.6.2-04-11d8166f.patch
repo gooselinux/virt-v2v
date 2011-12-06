@@ -1,0 +1,56 @@
+commit 11d8166f4d5e637b9c6617c14c2e97c960253b53
+Author: Matthew Booth <mbooth@redhat.com>
+Date:   Wed Aug 18 11:03:50 2010 +0100
+
+    Include firstboot.bat in the virt-v2v distribution
+
+diff --git a/MANIFEST b/MANIFEST
+index e0be2d2..4c8c5c2 100644
+--- a/MANIFEST
++++ b/MANIFEST
+@@ -47,3 +47,5 @@ v2v/run-v2v-locally
+ v2v/virt-v2v.conf
+ v2v/virt-v2v.conf.pod
+ v2v/virt-v2v.pl
++windows/firstboot.bat
++windows/README.txt
+diff --git a/windows/README.txt b/windows/README.txt
+new file mode 100644
+index 0000000..3499841
+--- /dev/null
++++ b/windows/README.txt
+@@ -0,0 +1,2 @@
++Windows conversion additionally requires the RHEV Application Provisioning Tool
++and 'rhsrvany', which are not currently distributed with the virt-v2v sources.
+diff --git a/windows/firstboot.bat b/windows/firstboot.bat
+new file mode 100644
+index 0000000..7a234b2
+--- /dev/null
++++ b/windows/firstboot.bat
+@@ -0,0 +1,26 @@
++@echo off
++
++rem firstboot.bat
++rem Copyright (C) 2009-2010 Red Hat Inc.
++rem
++rem This program is free software; you can redistribute it and/or
++rem modify it under the terms of the GNU Lesser General Public
++rem License as published by the Free Software Foundation; either
++rem version 2 of the License, or (at your option) any later version.
++rem
++rem This library is distributed in the hope that it will be useful,
++rem but WITHOUT ANY WARRANTY; without even the implied warranty of
++rem MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++rem Lesser General Public License for more details.
++rem
++rem You should have received a copy of the GNU Lesser General Public
++rem License along with this library; if not, write to the Free Software
++rem Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++
++echo v2v first boot script started > log.txt
++
++echo installing rhev-apt >> log.txt
++"rhev-apt.exe" /S /v/qn >>log.txt
++
++echo starting rhev-apt
++net start rhev-apt >>log.txt

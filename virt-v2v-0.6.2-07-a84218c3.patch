@@ -1,0 +1,25 @@
+commit a84218c342d97b1a4dfb8751e526c3f0227180a3
+Author: Matthew Booth <mbooth@redhat.com>
+Date:   Thu Aug 19 16:53:50 2010 +0100
+
+    Copy driver files correctly during Windows guest conversion
+    
+    This fixes a bug in patch c96306de which caused files to be incorrectly copied
+    to /windows/Drivers/VirtIO on the guest.
+
+diff --git a/lib/Sys/VirtV2V/Converter/Windows.pm b/lib/Sys/VirtV2V/Converter/Windows.pm
+index 84afbb8..bec1d60 100644
+--- a/lib/Sys/VirtV2V/Converter/Windows.pm
++++ b/lib/Sys/VirtV2V/Converter/Windows.pm
+@@ -369,9 +369,9 @@ sub _prepare_virtio_drivers
+ 
+     foreach my $src ($g->ls($virtio)) {
+         my $name = $src;
+-        $src = File::Spec->catfile($virtio);
++        $src = File::Spec->catfile($virtio, $src);
+         my $dst = File::Spec->catfile($driverdir, $name);
+-        $g->cp_a($src, $dst);
++        $g->cp($src, $dst);
+     }
+ 
+     # Locate and download the SOFTWARE hive
